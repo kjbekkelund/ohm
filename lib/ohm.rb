@@ -232,14 +232,22 @@ module Ohm
     #   company.employees.all                #=> ["Albert", "Benoit"]
     #   company.employees.include?("Albert") #=> true
     class SortedSet < Collection
-
+      
+      attr_accessor :sort_on
+      
+      def initialize(db, key, model = nil, options = {})
+        super(db, key, model)
+        self.sort_on = options[:sort_on] if options.has_key? :sort_on
+      end
+      
       # @param value [#to_s] Adds value to the list.
       def << value
         db.zadd(key, value[0], value[1])
       end
 
       def add(model)
-        self << [model.score, model.id]
+        att = model.send(sort_on) if sort_on != nil
+        self << [att ? att : model.score, model.id]
       end
 
       def delete(value)
@@ -492,10 +500,10 @@ module Ohm
       collections << name
     end
     
-    def self.sortedset(name, model = nil)
+    def self.sortedset(name, model = nil, options = {})
       raise RedefinitionError, name if collections.include?(name)
 
-      attr_sortedset_reader(name, model)
+      attr_sortedset_reader(name, model, options)
       collections << name
     end
 
@@ -534,10 +542,10 @@ module Ohm
       end
     end
 
-    def self.attr_sortedset_reader(name, model)
+    def self.attr_sortedset_reader(name, model, options)
       define_method(name) do
         instance_variable_get("@#{name}") ||
-          instance_variable_set("@#{name}", Attributes::SortedSet.new(db, key(name), model))
+          instance_variable_set("@#{name}", Attributes::SortedSet.new(db, key(name), model, options))
       end
     end
 
