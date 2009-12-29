@@ -217,6 +217,69 @@ module Ohm
       end
     end
 
+    # Represents a Redis sorted set.
+    #
+    # @example Use a sortedset attribute.
+    #
+    #   class Company < Ohm::Model
+    #     attribute :name
+    #     sortedset :employees
+    #   end
+    #
+    #   company = Company.create :name => "Redis Co."
+    #   company.employees << [3, "Albert"]
+    #   company.employees << [2, "Benoit"]
+    #   company.employees.all                #=> ["Albert", "Benoit"]
+    #   company.employees.include?("Albert") #=> true
+    class SortedSet < Collection
+
+      # @param value [#to_s] Adds value to the list.
+      def << value
+        db.zadd(key, value[0], value[1])
+      end
+
+      def add(model)
+        self << [model.score, model.id]
+      end
+
+      def delete(value)
+        db.zrem(key, value)
+      end
+
+      def include?(value)
+        score(value) != nil
+      end
+
+      def range(start, _end, reversed = false)
+        if reversed
+          db.zrevrange(key, start, _end)
+        else
+          db.zrange(key, start, _end)
+        end
+      end
+
+      def score(value)
+        db.zscore(key, value)
+      end
+
+      def increment(increment, value)
+        db.zincrby(key, increment, value)
+      end
+
+      def raw
+        range(0, -1)
+      end
+
+      # @return [Integer] Returns the number of elements in the set.
+      def size
+        db.zcard(key)
+      end
+
+      def inspect
+        "#<SortedSet: #{raw.inspect}>"
+      end
+    end
+
     # Represents a Redis set.
     #
     # @example Use a set attribute.
@@ -428,6 +491,13 @@ module Ohm
       attr_set_reader(name, model)
       collections << name
     end
+    
+    def self.sortedset(name, model = nil)
+      raise RedefinitionError, name if collections.include?(name)
+
+      attr_sortedset_reader(name, model)
+      collections << name
+    end
 
     # Creates an index (a set) that will be used for finding instances.
     #
@@ -461,6 +531,13 @@ module Ohm
       define_method(name) do
         instance_variable_get("@#{name}") ||
           instance_variable_set("@#{name}", Attributes::Set.new(db, key(name), model))
+      end
+    end
+
+    def self.attr_sortedset_reader(name, model)
+      define_method(name) do
+        instance_variable_get("@#{name}") ||
+          instance_variable_set("@#{name}", Attributes::SortedSet.new(db, key(name), model))
       end
     end
 
