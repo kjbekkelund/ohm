@@ -381,11 +381,11 @@ module Ohm
     def self.attribute(name)
       raise RedefinitionError, name if attributes.include?(name)
 
-      define_method(name) do
+      superclass.send :define_method, name do
         read_local(name)
       end
 
-      define_method(:"#{name}=") do |value|
+      superclass.send :define_method, :"#{name}=" do |value|
         write_local(name, value)
       end
 
@@ -399,7 +399,7 @@ module Ohm
     def self.counter(name)
       raise RedefinitionError, name if counters.include?(name)
 
-      define_method(name) do
+      superclass.send :define_method, name do
         read_local(name).to_i
       end
 
@@ -451,14 +451,14 @@ module Ohm
     end
 
     def self.attr_list_reader(name, model = nil)
-      define_method(name) do
+      superclass.send :define_method, name do
         instance_variable_get("@#{name}") ||
           instance_variable_set("@#{name}", Attributes::List.new(db, key(name), model))
       end
     end
 
     def self.attr_set_reader(name, model)
-      define_method(name) do
+      superclass.send :define_method, name do
         instance_variable_get("@#{name}") ||
           instance_variable_set("@#{name}", Attributes::Set.new(db, key(name), model))
       end
